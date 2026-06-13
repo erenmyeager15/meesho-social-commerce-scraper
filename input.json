@@ -4,6 +4,8 @@
     "maxPagesPerQuery": 2,
     "includeAds": false,
     "proxyConfiguration": {
-        "useApifyProxy": false
+        "useApifyProxy": true,
+        "apifyProxyGroups": ["RESIDENTIAL"],
+        "apifyProxyCountry": "IN"
     }
 }

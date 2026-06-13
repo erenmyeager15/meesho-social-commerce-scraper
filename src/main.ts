@@ -51,7 +51,11 @@ function normalizeInput(input: ActorInput): NormalizedInput {
         includeAds: input.includeAds ?? false,
         maxResults: clampInteger(input.maxResults, 100, 1, 500),
         maxPagesPerQuery: clampInteger(input.maxPagesPerQuery, 10, 1, 50),
-        proxyConfiguration: input.proxyConfiguration,
+        proxyConfiguration: input.proxyConfiguration ?? {
+            useApifyProxy: true,
+            apifyProxyGroups: ['RESIDENTIAL'],
+            apifyProxyCountry: 'IN',
+        },
     };
 }
 

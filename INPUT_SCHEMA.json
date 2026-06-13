@@ -63,11 +63,13 @@
         },
         "proxyConfiguration": {
             "title": "Proxy Configuration",
-            "description": "Optional proxy settings. The direct API often works without a proxy, but Apify residential proxies can improve reliability.",
+            "description": "Proxy settings. Residential India proxy is recommended because Meesho blocks many datacenter IPs.",
             "type": "object",
             "editor": "proxy",
             "default": {
-                "useApifyProxy": false
+                "useApifyProxy": true,
+                "apifyProxyGroups": ["RESIDENTIAL"],
+                "apifyProxyCountry": "IN"
             }
         }
     },

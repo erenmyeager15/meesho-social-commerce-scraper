@@ -35,7 +35,9 @@ The scraper uses Meesho's public product search flow and stores results in the A
     "maxResults": 100,
     "maxPagesPerQuery": 10,
     "proxyConfiguration": {
-        "useApifyProxy": false
+        "useApifyProxy": true,
+        "apifyProxyGroups": ["RESIDENTIAL"],
+        "apifyProxyCountry": "IN"
     }
 }
 ```
@@ -106,7 +108,7 @@ The actor charges only after a product row is saved. It respects the user's maxi
 
 ## Notes
 
-- The direct API often works without a proxy. If requests are blocked from your environment, enable Apify Proxy and use residential proxies.
+- Meesho blocks many datacenter IPs. Use Apify Residential proxies with country `IN` for best reliability.
 - Results depend on Meesho availability and the search query used.
 - Sponsored products are excluded by default. Enable `includeAds` to include them.
 
