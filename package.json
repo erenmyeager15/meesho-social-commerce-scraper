@@ -1,0 +1,22 @@
+{
+    "name": "meesho-social-commerce-scraper",
+    "version": "1.0.0",
+    "type": "module",
+    "description": "Apify Actor that scrapes public Meesho product catalog data including prices, ratings, categories, images, and delivery flags.",
+    "engines": {
+        "node": ">=20"
+    },
+    "main": "dist/main.js",
+    "scripts": {
+        "build": "tsc",
+        "start": "node dist/main.js",
+        "dev": "tsc && node dist/main.js"
+    },
+    "dependencies": {
+        "apify": "^3.2.0",
+        "undici": "^6.19.8"
+    },
+    "devDependencies": {
+        "typescript": "^5.5.0"
+    }
+}

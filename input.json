@@ -1,0 +1,9 @@
+{
+    "searchQueries": ["kurti"],
+    "maxResults": 10,
+    "maxPagesPerQuery": 2,
+    "includeAds": false,
+    "proxyConfiguration": {
+        "useApifyProxy": false
+    }
+}

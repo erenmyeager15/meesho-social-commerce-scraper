@@ -1,0 +1,75 @@
+{
+    "title": "Meesho Product Scraper - Social Commerce Data",
+    "description": "Scrape public Meesho product catalog data by search term. Extract prices, ratings, reviews, categories, delivery flags, images, tags, sizes, and product URLs.",
+    "type": "object",
+    "schemaVersion": 1,
+    "properties": {
+        "searchQueries": {
+            "title": "Search Queries",
+            "description": "Product search terms to scrape from Meesho. Each query is processed in sequence.",
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "editor": "stringList",
+            "default": ["kurti"]
+        },
+        "minPrice": {
+            "title": "Minimum Price",
+            "description": "Only keep products with a price greater than or equal to this INR value.",
+            "type": "integer",
+            "minimum": 0,
+            "editor": "number"
+        },
+        "maxPrice": {
+            "title": "Maximum Price",
+            "description": "Only keep products with a price less than or equal to this INR value.",
+            "type": "integer",
+            "minimum": 0,
+            "editor": "number"
+        },
+        "minRating": {
+            "title": "Minimum Rating",
+            "description": "Only keep products with a rating greater than or equal to this value.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 5,
+            "editor": "number"
+        },
+        "includeAds": {
+            "title": "Include Sponsored Products",
+            "description": "Include products marked as ads or sponsored placements.",
+            "type": "boolean",
+            "default": false,
+            "editor": "checkbox"
+        },
+        "maxResults": {
+            "title": "Max Results",
+            "description": "Maximum number of products to save across all search queries.",
+            "type": "integer",
+            "default": 100,
+            "minimum": 1,
+            "maximum": 500,
+            "editor": "number"
+        },
+        "maxPagesPerQuery": {
+            "title": "Max Pages Per Query",
+            "description": "Maximum number of Meesho result pages to request for each search query.",
+            "type": "integer",
+            "default": 10,
+            "minimum": 1,
+            "maximum": 50,
+            "editor": "number"
+        },
+        "proxyConfiguration": {
+            "title": "Proxy Configuration",
+            "description": "Optional proxy settings. The direct API often works without a proxy, but Apify residential proxies can improve reliability.",
+            "type": "object",
+            "editor": "proxy",
+            "default": {
+                "useApifyProxy": false
+            }
+        }
+    },
+    "required": []
+}
