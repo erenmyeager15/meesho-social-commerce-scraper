@@ -1,0 +1,14 @@
+{
+  "actorOutputSchemaVersion": 1,
+  "title": "Meesho Product Scraper Output",
+  "description": "Structured Meesho product catalog records with clean product names, prices, MRP, discounts, ratings, categories, stock flags, product URLs, image URLs, and scraped timestamps.",
+  "type": "object",
+  "properties": {
+    "results": {
+      "type": "string",
+      "title": "Meesho product records",
+      "description": "Clean dataset items containing Meesho product catalog and price data.",
+      "template": "{{links.apiDefaultDatasetUrl}}/items"
+    }
+  }
+}
