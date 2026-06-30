@@ -1,150 +1,49 @@
 {
-    "actorSpecification": 1,
-    "name": "meesho-social-commerce-scraper",
-    "title": "Meesho Product Scraper - Social Commerce Data",
-    "description": "Collect public Meesho product catalog data with clean titles, brands, prices, MRP, discounts, ratings, categories, sizes, image URLs, and product URLs.",
-    "version": "1.0",
-    "pricingInfo": {
-        "pricingModel": "PAY_PER_EVENT",
-        "pricingPerEvent": {
-            "actorChargeEvents": {
-                "apify-actor-start": {
-                    "eventTitle": "Actor start",
-                    "eventDescription": "Charged when the run starts to cover startup and request setup. Number of events depends on memory (one per GB, minimum one).",
-                    "eventPriceUsd": 0.001,
-                    "isPrimaryEvent": false,
-                    "isOneTimeEvent": true
-                },
-                "product-scraped": {
-                    "eventTitle": "Product scraped",
-                    "eventDescription": "Charged once for each clean Meesho product saved to the dataset.",
-                    "eventPriceUsd": 0.002,
-                    "isPrimaryEvent": true,
-                    "isOneTimeEvent": false
-                }
-            }
+  "actorSpecification": 1,
+  "name": "meesho-social-commerce-scraper",
+  "title": "Meesho Product Scraper: Prices & Catalog",
+  "description": "Scrape public Meesho product search results for titles, prices, MRP, discounts, ratings, categories, sizes, stock flags, image URLs, and product URLs.",
+  "version": "1.0",
+  "buildTag": "latest",
+  "dockerfile": "Dockerfile",
+  "input": "../INPUT_SCHEMA.json",
+  "readme": "../README.md",
+  "exampleRunInput": {
+    "body": "{\"searchQueries\":[\"kurti\"],\"includeAds\":false,\"maxResults\":1,\"maxPagesPerQuery\":1,\"proxyConfiguration\":{\"useApifyProxy\":true,\"apifyProxyGroups\":[\"RESIDENTIAL\"],\"apifyProxyCountry\":\"IN\"}}",
+    "contentType": "application/json; charset=utf-8"
+  },
+  "output": "./output_schema.json",
+  "categories": ["ECOMMERCE", "AUTOMATION"],
+  "categoriesVersion": "1.0.0",
+  "pricingInfo": {
+    "pricingModel": "PAY_PER_EVENT",
+    "pricingPerEvent": {
+      "actorChargeEvents": {
+        "apify-actor-start": {
+          "eventTitle": "Actor Start",
+          "eventDescription": "Charged when the Actor starts running. Number of events charged depends on Actor memory (one event per GB, minimum one event).",
+          "eventPriceUsd": 0.00005,
+          "isPrimaryEvent": false,
+          "isOneTimeEvent": true
+        },
+        "product-scraped": {
+          "eventTitle": "Product scraped",
+          "eventDescription": "Charged once for each clean Meesho product saved to the dataset.",
+          "eventPriceUsd": 0.002,
+          "isPrimaryEvent": true,
+          "isOneTimeEvent": false
         }
-    },
-    "categories": ["ECOMMERCE", "AUTOMATION", "OTHER"],
-    "minMemoryMbytes": 512,
-    "maxMemoryMbytes": 4096,
-    "defaultRunOptions": {
-        "build": "latest",
-        "memoryMbytes": 1024,
-        "timeoutSecs": 1800
-    },
-    "output": "./output_schema.json",
-    "storages": {
-        "dataset": {
-            "actorSpecification": 1,
-            "views": {
-                "products": {
-                    "title": "Products",
-                    "transformation": {
-                        "fields": [
-                            "source",
-                            "searchQuery",
-                            "position",
-                            "productId",
-                            "title",
-                            "brand",
-                            "price",
-                            "mrp",
-                            "discountPercent",
-                            "currency",
-                            "packSize",
-                            "category",
-                            "rating",
-                            "ratingCount",
-                            "inStock",
-                            "productUrl",
-                            "imageUrl",
-                            "scrapedAt"
-                        ]
-                    },
-                    "display": {
-                        "component": "table",
-                        "properties": {
-                            "source": {
-                                "label": "Source",
-                                "format": "text"
-                            },
-                            "searchQuery": {
-                                "label": "Search",
-                                "format": "text"
-                            },
-                            "position": {
-                                "label": "Position",
-                                "format": "number"
-                            },
-                            "productId": {
-                                "label": "Product ID",
-                                "format": "text"
-                            },
-                            "title": {
-                                "label": "Product",
-                                "format": "text"
-                            },
-                            "brand": {
-                                "label": "Brand",
-                                "format": "text"
-                            },
-                            "price": {
-                                "label": "Price",
-                                "format": "number"
-                            },
-                            "mrp": {
-                                "label": "MRP",
-                                "format": "number"
-                            },
-                            "discountPercent": {
-                                "label": "Discount %",
-                                "format": "number"
-                            },
-                            "currency": {
-                                "label": "Currency",
-                                "format": "text"
-                            },
-                            "packSize": {
-                                "label": "Pack Size",
-                                "format": "text"
-                            },
-                            "category": {
-                                "label": "Category",
-                                "format": "text"
-                            },
-                            "rating": {
-                                "label": "Rating",
-                                "format": "number"
-                            },
-                            "ratingCount": {
-                                "label": "Ratings",
-                                "format": "number"
-                            },
-                            "inStock": {
-                                "label": "In Stock",
-                                "format": "boolean"
-                            },
-                            "productUrl": {
-                                "label": "URL",
-                                "format": "link"
-                            },
-                            "imageUrl": {
-                                "label": "Image",
-                                "format": "image"
-                            },
-                            "scrapedAt": {
-                                "label": "Scraped At",
-                                "format": "date"
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    },
-    "input": "../INPUT_SCHEMA.json",
-    "readme": "../README.md",
-    "dockerfile": "Dockerfile",
-    "webScraper": false
+      }
+    }
+  },
+  "storages": {
+    "dataset": "./dataset_schema.json"
+  },
+  "defaultRunOptions": {
+    "build": "latest",
+    "memoryMbytes": 512,
+    "timeoutSecs": 900
+  },
+  "minMemoryMbytes": 256,
+  "maxMemoryMbytes": 2048
 }

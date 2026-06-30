@@ -1,6 +1,6 @@
 {
     "title": "Meesho Product Scraper - Social Commerce Data",
-    "description": "Scrape public Meesho product catalog data by search term. Extract prices, ratings, reviews, categories, delivery flags, images, tags, sizes, and product URLs.",
+    "description": "Scrape public Meesho product catalog data by search term. Extract prices, ratings, categories, sizes, stock flags, images, and product URLs. The default input saves one product for a low-cost first run.",
     "type": "object",
     "schemaVersion": 1,
     "properties": {
@@ -12,7 +12,10 @@
                 "type": "string"
             },
             "editor": "stringList",
-            "default": ["kurti"]
+            "minItems": 1,
+            "maxItems": 5,
+            "default": ["kurti"],
+            "prefill": ["kurti"]
         },
         "minPrice": {
             "title": "Minimum Price",
@@ -45,25 +48,27 @@
         },
         "maxResults": {
             "title": "Max Results",
-            "description": "Maximum number of products to save across all search queries.",
+            "description": "Maximum number of products to save across all search queries. The default is 1 for a low-cost first run.",
             "type": "integer",
-            "default": 100,
+            "default": 1,
+            "prefill": 1,
             "minimum": 1,
             "maximum": 500,
             "editor": "number"
         },
         "maxPagesPerQuery": {
             "title": "Max Pages Per Query",
-            "description": "Maximum number of Meesho result pages to request for each search query.",
+            "description": "Maximum number of Meesho result pages to request for each search query. Start with 1 for a small test run.",
             "type": "integer",
-            "default": 10,
+            "default": 1,
+            "prefill": 1,
             "minimum": 1,
             "maximum": 50,
             "editor": "number"
         },
         "proxyConfiguration": {
             "title": "Proxy Configuration",
-            "description": "Proxy settings. Residential India proxy is recommended because Meesho blocks many datacenter IPs.",
+            "description": "Proxy settings. Residential India proxy is recommended because Meesho blocks many datacenter IPs. Proxy traffic may be billed as platform usage.",
             "type": "object",
             "editor": "proxy",
             "default": {
@@ -73,5 +78,5 @@
             }
         }
     },
-    "required": []
+    "required": ["searchQueries"]
 }

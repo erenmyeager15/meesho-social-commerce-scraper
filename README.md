@@ -1,121 +1,114 @@
-# Meesho Product Scraper - Social Commerce Data
+# Meesho Product Scraper: Prices & Catalog
 
-Collect public Meesho product catalog data for ecommerce research, price tracking, assortment monitoring, and marketplace analytics. The actor searches Meesho by keyword and saves clean product rows with prices, ratings, reviews, categories, delivery flags, images, tags, sizes, and product URLs.
+Scrape public Meesho product search results for ecommerce research, price tracking, catalog monitoring, and marketplace reporting. The Actor searches Meesho by keyword and saves clean product rows with titles, prices, MRP, discounts, ratings, categories, sizes, image URLs, product URLs, and scrape timestamps.
 
-The scraper uses Meesho's public product search flow and stores results in the Apify Dataset. It is designed for product/catalog data only and does not collect seller contact details, phone numbers, emails, or private user data.
+The scraper uses Meesho's public product search flow. It is designed for product/catalog data only and does not collect seller contact details, phone numbers, emails, private account data, or customer data.
 
-## What You Can Scrape
+## Quick Start
 
-- Product names and catalog IDs
-- Product prices in INR
-- Ratings, rating counts, and review counts
-- Category and category ID
-- Product image and product URL
-- Delivery flags such as free delivery and shipping charge
-- Mall verified, assured, sponsored/ad flags
-- Available sizes, tags, and product attributes where available
+Use this one-result sample to verify output at low cost:
+
+```json
+{
+  "searchQueries": ["kurti"],
+  "includeAds": false,
+  "maxResults": 1,
+  "maxPagesPerQuery": 1,
+  "proxyConfiguration": {
+    "useApifyProxy": true,
+    "apifyProxyGroups": ["RESIDENTIAL"],
+    "apifyProxyCountry": "IN"
+  }
+}
+```
+
+For larger runs, increase `maxResults` gradually and keep `maxPagesPerQuery` at 1 until you confirm the output quality for your query.
+
+## What It Extracts
+
+- Source, search query, result position, and product ID
+- Product title and brand when exposed
+- Price, MRP, discount percentage, and currency
+- Category and available sizes in `packSize`
+- Rating, rating count, and stock flag when exposed
+- Product URL, image URL, and ISO scrape timestamp
 
 ## Use Cases
 
-1. Track Meesho prices for selected product searches.
-2. Monitor trending products and categories in Indian social commerce.
-3. Compare ratings and review volume across product niches.
-4. Build ecommerce market research datasets.
-5. Watch competitor assortment and catalog changes.
+- Track Meesho product prices, MRP, and discounts by search term
+- Monitor fashion, home, and marketplace catalog changes
+- Compare public Meesho product listings with other ecommerce sources
+- Build competitor price snapshots and product research reports
+- Export product rows to CSV, Excel, JSON, or dashboards
 
-## Input
+## Pricing And Cost Control
 
-```json
-{
-    "searchQueries": ["kurti", "saree"],
-    "minPrice": 100,
-    "maxPrice": 1000,
-    "minRating": 4,
-    "includeAds": false,
-    "maxResults": 100,
-    "maxPagesPerQuery": 10,
-    "proxyConfiguration": {
-        "useApifyProxy": true,
-        "apifyProxyGroups": ["RESIDENTIAL"],
-        "apifyProxyCountry": "IN"
-    }
-}
-```
+This Actor uses Apify Pay Per Event pricing. As of the latest live check, active pricing is:
 
-## Output Example
+| Event | Price |
+| --- | ---: |
+| `product-scraped` | `$0.002` per saved product |
+| `apify-actor-start` | `$0.00005` per GB start event |
 
-```json
-{
-    "source": "meesho",
-    "searchQuery": "kurti",
-    "position": 1,
-    "catalogId": "112525643",
-    "productId": "6dy8dt",
-    "heroProductId": "386229233",
-    "productName": "Women Rayon Banita Alluring Kurtis",
-    "heroProductName": "Women Rayon Banita Alluring Kurtis",
-    "categoryId": 1021,
-    "category": "Kurtis & Kurtas",
-    "description": "Women Rayon Banita Alluring Kurtis",
-    "price": 197,
-    "minProductPrice": 197,
-    "currency": "INR",
-    "rating": 4.1,
-    "reviewCount": 5510,
-    "ratingCount": 20362,
-    "numDesigns": 4,
-    "availableSizes": ["S", "M", "L", "XL"],
-    "freeDelivery": false,
-    "shippingCharges": 0,
-    "expressDelivery": false,
-    "assured": null,
-    "mallVerified": false,
-    "isAdProduct": false,
-    "tags": ["Lowest Price"],
-    "productAttributes": ["Fabric: Rayon"],
-    "imageUrl": "https://images.meesho.com/images/catalogs/example_512.jpg",
-    "collageImageUrl": "https://images.meesho.com/images/catalogs/example.jpg",
-    "imagesCount": 4,
-    "productUrl": "https://www.meesho.com/kurti/p/6dy8dt",
-    "createdAt": "2026-06-01T00:00:00Z",
-    "scrapedAt": "2026-06-13T12:00:00.000Z"
-}
-```
+Products are charged only when a clean row is saved to the dataset. The Actor stops requesting more data when the run's maximum charge is reached. Platform usage such as compute and proxy traffic may also apply depending on your Apify plan and run configuration.
 
-## How To Scrape Meesho Products
+Cost-control tips:
 
-1. Enter one or more product search queries.
-2. Optionally set price and rating filters.
-3. Set the maximum number of products to save.
-4. Run the actor.
-5. Export the dataset as JSON, CSV, Excel, XML, or RSS.
+- Start with one query, for example `kurti`.
+- Keep `maxResults: 1` for the first run, then scale gradually.
+- Keep `maxPagesPerQuery: 1` for test runs.
+- Keep `includeAds: false` unless sponsored products are needed.
+- Use the run's maximum cost setting for strict spending control.
+- Residential India proxy is recommended for reliable cloud runs, but proxy traffic can add platform usage cost.
 
-## Pricing
+## Input Fields
 
-This actor uses pay per event pricing.
-
-| Event | When it is charged | Price |
+| Field | Type | Description |
 | --- | --- | --- |
-| `product-scraped` | Once for each clean product saved to the dataset | `$0.002` |
+| `searchQueries` | string[] | One to five Meesho searches such as `kurti`, `saree`, or `bedsheet` |
+| `minPrice` / `maxPrice` | number | Optional INR price range |
+| `minRating` | number | Optional minimum rating from 0 to 5 |
+| `includeAds` | boolean | Include sponsored/ad products when true |
+| `maxResults` | integer | Maximum unique products to save, up to 500 |
+| `maxPagesPerQuery` | integer | Maximum Meesho result pages to request per query |
+| `proxyConfiguration` | object | Apify Proxy settings. Residential India is recommended |
 
-The actor charges only after a product row is saved. It respects the user's maximum run charge limit and stops cleanly when the limit is reached.
+## Sample Output
 
-## Categories
+```json
+{
+  "source": "meesho",
+  "searchQuery": "kurti",
+  "position": 1,
+  "productId": "6dy8dt",
+  "title": "Women Rayon Banita Alluring Kurtis",
+  "brand": "N/A",
+  "price": 197,
+  "mrp": 399,
+  "discountPercent": 51,
+  "currency": "INR",
+  "packSize": "S, M, L, XL",
+  "category": "Kurtis & Kurtas",
+  "rating": 4.1,
+  "ratingCount": 20362,
+  "inStock": null,
+  "productUrl": "https://www.meesho.com/women-rayon-banita-alluring-kurtis/p/6dy8dt",
+  "imageUrl": "https://images.meesho.com/images/catalogs/example_512.jpg",
+  "scrapedAt": "2026-06-13T12:00:00.000Z"
+}
+```
 
-- E-commerce
-- Automation
-- Other
+## Reliability Notes
 
-## Notes
-
-- Meesho blocks many datacenter IPs. Use Apify Residential proxies with country `IN` for best reliability.
-- Results depend on Meesho availability and the search query used.
-- Sponsored products are excluded by default. Enable `includeAds` to include them.
+- Meesho search results, ranking, prices, ratings, and availability can change frequently.
+- Some products do not expose brand, stock, MRP, or full size data. Missing values are saved as `null` or `N/A`.
+- The Actor fails blocked or empty zero-result runs instead of silently reporting success with no saved products.
+- If individual pages fail after retries, they are skipped and reported; the run fails only if no products are saved.
 
 ## Responsible Use
 
-Use this actor only for lawful purposes and in compliance with Meesho's terms, robots.txt, applicable privacy laws, and local regulations. Do not use it to collect, store, or resell personal data without a lawful basis.
+This Actor is not affiliated with, endorsed by, or sponsored by Meesho. Use it only for lawful purposes and in compliance with applicable website terms, privacy laws, and local regulations. Do not use it to collect private account data, seller contact details, customer data, or non-public information.
 
 ## License
 
-Apache-2.0
+Apache License 2.0. See [LICENSE](LICENSE).

@@ -1,23 +1,14 @@
 import { Actor } from 'apify';
 import { ProxyAgent } from 'undici';
 import type { Dispatcher } from 'undici';
+import { normalizeInput } from './input.js';
 import { buildSearchPayload, buildSearchUrl, toProductRecord } from './routes.js';
-import type { ActorInput, ProductRecord, ProxyInput, SearchResponse } from './types.js';
+import type { ActorInput, PreparedProductRecord, SearchResponse } from './types.js';
+import type { NormalizedInput } from './input.js';
 
 const MEESHO_SEARCH_API = 'https://www.meesho.com/api/v1/products/search';
 const PAGE_SIZE = 20;
 const MAX_RETRIES = 3;
-
-interface NormalizedInput {
-    searchQueries: string[];
-    minPrice?: number;
-    maxPrice?: number;
-    minRating?: number;
-    includeAds: boolean;
-    maxResults: number;
-    maxPagesPerQuery: number;
-    proxyConfiguration?: ProxyInput;
-}
 
 function logInfo(message: string, data?: Record<string, unknown>): void {
     console.log(data ? `${message} ${JSON.stringify(data)}` : message);
@@ -27,43 +18,11 @@ function logWarn(message: string, data?: Record<string, unknown>): void {
     console.warn(data ? `${message} ${JSON.stringify(data)}` : message);
 }
 
-function cleanStringArray(values: unknown, fallback: string[]): string[] {
-    const list = Array.isArray(values) ? values : [];
-    const cleaned = list
-        .map((value) => (typeof value === 'string' ? value.trim() : ''))
-        .filter(Boolean);
-
-    return cleaned.length ? Array.from(new Set(cleaned)) : fallback;
-}
-
-function clampInteger(value: unknown, fallback: number, min: number, max: number): number {
-    const parsed = typeof value === 'number' ? value : Number(value);
-    if (!Number.isFinite(parsed)) return fallback;
-    return Math.max(min, Math.min(max, Math.floor(parsed)));
-}
-
-function normalizeInput(input: ActorInput): NormalizedInput {
-    return {
-        searchQueries: cleanStringArray(input.searchQueries, ['kurti']),
-        minPrice: typeof input.minPrice === 'number' ? input.minPrice : undefined,
-        maxPrice: typeof input.maxPrice === 'number' ? input.maxPrice : undefined,
-        minRating: typeof input.minRating === 'number' ? input.minRating : undefined,
-        includeAds: input.includeAds ?? false,
-        maxResults: clampInteger(input.maxResults, 100, 1, 500),
-        maxPagesPerQuery: clampInteger(input.maxPagesPerQuery, 10, 1, 50),
-        proxyConfiguration: input.proxyConfiguration ?? {
-            useApifyProxy: true,
-            apifyProxyGroups: ['RESIDENTIAL'],
-            apifyProxyCountry: 'IN',
-        },
-    };
-}
-
 function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function shouldKeepRecord(record: ProductRecord, input: NormalizedInput): boolean {
+function shouldKeepRecord(record: PreparedProductRecord, input: NormalizedInput): boolean {
     if (!input.includeAds && record.isAdProduct) return false;
 
     if (typeof input.minPrice === 'number' && (record.price === null || record.price < input.minPrice)) {
@@ -157,9 +116,7 @@ async function fetchSearchPage(options: {
 
 Actor.main(async () => {
     const input = normalizeInput((await Actor.getInput<ActorInput>()) ?? {});
-    const proxyConfiguration = input.proxyConfiguration
-        ? await Actor.createProxyConfiguration(input.proxyConfiguration as never)
-        : undefined;
+    const proxyConfiguration = await Actor.createProxyConfiguration(input.proxyConfiguration as never);
 
     logInfo('Starting Meesho Product Scraper', {
         searchQueries: input.searchQueries,
@@ -170,6 +127,8 @@ Actor.main(async () => {
     const seen = new Set<string>();
     let saved = 0;
     let chargeLimitReached = false;
+    let fatalBillingError: Error | null = null;
+    const skippedPages: Array<{ query: string; page: number; reason: string }> = [];
 
     searchLoop:
     for (const query of input.searchQueries) {
@@ -177,15 +136,27 @@ Actor.main(async () => {
         let searchSessionId: string | null = null;
 
         for (let page = 1; page <= input.maxPagesPerQuery; page++) {
-            if (saved >= input.maxResults || chargeLimitReached) break searchLoop;
+            if (saved >= input.maxResults || chargeLimitReached || fatalBillingError) break searchLoop;
 
-            const response = await fetchSearchPage({
-                query,
-                page,
-                cursor,
-                searchSessionId,
-                proxyConfiguration,
-            });
+            let response: SearchResponse;
+            try {
+                response = await fetchSearchPage({
+                    query,
+                    page,
+                    cursor,
+                    searchSessionId,
+                    proxyConfiguration,
+                });
+            } catch (error) {
+                const reason = error instanceof Error ? error.message : String(error);
+                skippedPages.push({ query, page, reason });
+                logWarn('Skipping remaining Meesho pages for query after repeated request failures', {
+                    query,
+                    page,
+                    reason,
+                });
+                break;
+            }
 
             const catalogs = Array.isArray(response.catalogs) ? response.catalogs : [];
             cursor = response.cursor ?? null;
@@ -207,24 +178,72 @@ Actor.main(async () => {
                 const record = toProductRecord(catalog, query, position);
                 if (!record || !shouldKeepRecord(record, input)) continue;
 
-                const uniqueKey = record.catalogId || record.productId || record.productUrl;
+                const uniqueKey = record.uniqueKey;
                 if (!uniqueKey || seen.has(uniqueKey)) continue;
-                seen.add(uniqueKey);
+                const datasetRecord = {
+                    source: record.source,
+                    searchQuery: record.searchQuery,
+                    position: record.position,
+                    productId: record.productId,
+                    title: record.title,
+                    brand: record.brand,
+                    price: record.price,
+                    mrp: record.mrp,
+                    discountPercent: record.discountPercent,
+                    currency: record.currency,
+                    packSize: record.packSize,
+                    category: record.category,
+                    rating: record.rating,
+                    ratingCount: record.ratingCount,
+                    inStock: record.inStock,
+                    productUrl: record.productUrl,
+                    imageUrl: record.imageUrl,
+                    scrapedAt: record.scrapedAt,
+                };
 
-                await Actor.pushData(record);
-                const chargeResult = await Actor.charge({ eventName: 'product-scraped' });
-                saved++;
+                try {
+                    const chargeResult = await Actor.pushData(datasetRecord, 'product-scraped');
+                    const recordWasSaved = chargeResult.chargedCount > 0
+                        || !chargeResult.eventChargeLimitReached;
 
-                if (chargeResult?.eventChargeLimitReached) {
+                    if (recordWasSaved) {
+                        seen.add(uniqueKey);
+                        saved += 1;
+                    }
+
+                    if (chargeResult?.eventChargeLimitReached) {
+                        chargeLimitReached = true;
+                        await Actor.setStatusMessage(`Stopped at the user's spending limit after ${saved} products`);
+                        logWarn('User spending limit reached; stopping after the last saved product.', { saved });
+                        break searchLoop;
+                    }
+                } catch (error) {
+                    fatalBillingError = error instanceof Error ? error : new Error(String(error));
                     chargeLimitReached = true;
-                    logWarn('User spending limit reached; stopping after the last saved product.', { saved });
-                    break searchLoop;
+                    await Actor.setStatusMessage('Stopped because product output billing failed.');
+                    logWarn('Stopping Meesho run because dataset push with product-scraped charge failed.', {
+                        error: fatalBillingError.message,
+                    });
+                    throw fatalBillingError;
                 }
             }
 
             if (!cursor) break;
             await sleep(700 + Math.floor(Math.random() * 700));
         }
+    }
+
+    if (fatalBillingError) throw fatalBillingError;
+    if (saved === 0 && !chargeLimitReached) {
+        const skipped = skippedPages.map((item) => `${item.query} page ${item.page}: ${item.reason}`).join('; ');
+        throw new Error(`Meesho scrape finished with no saved products.${skipped ? ` Skipped pages: ${skipped}` : ''}`);
+    }
+    if (skippedPages.length > 0) {
+        logWarn('Some Meesho pages were skipped', { skippedPages });
+    }
+
+    if (!chargeLimitReached) {
+        await Actor.setStatusMessage(`Finished with ${saved} Meesho products`);
     }
 
     logInfo('Meesho scrape complete', {

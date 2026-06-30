@@ -28,34 +28,24 @@ export interface ProductRecord {
     source: 'meesho';
     searchQuery: string;
     position: number;
-    catalogId: string;
     productId: string | null;
-    heroProductId: string | null;
-    productName: string;
-    heroProductName: string | null;
-    categoryId: number | null;
-    category: string | null;
-    description: string | null;
+    title: string;
+    brand: string;
     price: number | null;
-    minProductPrice: number | null;
-    currency: 'INR';
+    mrp: number | null;
+    discountPercent: number | null;
+    currency: string;
+    packSize: string;
+    category: string;
     rating: number | null;
-    reviewCount: number | null;
     ratingCount: number | null;
-    numDesigns: number | null;
-    availableSizes: string[];
-    freeDelivery: boolean | null;
-    shippingCharges: number | null;
-    expressDelivery: boolean | null;
-    assured: boolean | null;
-    mallVerified: boolean | null;
-    isAdProduct: boolean;
-    tags: string[];
-    productAttributes: string[];
-    imageUrl: string | null;
-    collageImageUrl: string | null;
-    imagesCount: number;
+    inStock: boolean | null;
     productUrl: string | null;
-    createdAt: string | null;
+    imageUrl: string | null;
     scrapedAt: string;
+}
+
+export interface PreparedProductRecord extends ProductRecord {
+    uniqueKey: string;
+    isAdProduct: boolean;
 }
