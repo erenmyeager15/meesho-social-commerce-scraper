@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { normalizeInput } from '../dist/input.js';
-import { buildSearchPayload, buildSearchUrl, toProductRecord } from '../dist/routes.js';
+import { normalizeInput, pagesFor, resolveProxyConfiguration } from '../dist/input.js';
+import { buildSearchPayload, buildSearchUrl, parseAttributes, parseDispatchDays, parseSizes, toProductRecord } from '../dist/routes.js';
+import { compareObservation, entryKey, mergeState, MAX_MONITORED, monitorKey, restoreState } from '../dist/monitor.js';
 
 const meeshoCatalog = {
     id: 112525643,
@@ -23,13 +24,15 @@ const meeshoCatalog = {
     isAdProduct: false,
 };
 
-test('normalizes default input to one low-cost kurti run', () => {
+test('normalizes default input to one full kurti page', () => {
     const input = normalizeInput({});
 
     assert.deepEqual(input.searchQueries, ['kurti']);
     assert.equal(input.includeAds, false);
-    assert.equal(input.maxResults, 1);
-    assert.equal(input.maxPagesPerQuery, 1);
+    assert.equal(input.maxResults, 20);
+    assert.equal(input.maxPagesPerQuery, undefined);
+    assert.equal(pagesFor(input, 20), 1);
+    assert.equal(input.onlyChanges, false);
     assert.equal(input.proxyConfiguration.useApifyProxy, true);
     assert.deepEqual(input.proxyConfiguration.apifyProxyGroups, ['RESIDENTIAL']);
     assert.equal(input.proxyConfiguration.apifyProxyCountry, 'IN');
@@ -89,4 +92,88 @@ test('extracts Meesho product rows in the public dataset shape', () => {
     assert.equal(record.imageUrl, 'https://images.meesho.com/images/catalogs/example_512.jpg');
     assert.equal(record.uniqueKey, '112525643');
     assert.equal(record.isAdProduct, false);
+});
+
+const sareeDetails = 'Saree Fabric: Banarasi Silk\nBlouse: Running Blouse\nPattern: Variable (Product Dependent)\nNet Quantity (N): Single\nSizes: \nFree Size (Saree Length Size: 5.7 m, Blouse Length Size: 0.8 m) \n\nDispatch: 2-2 Days';
+const kurtiDetails = 'Fabric: Cotton\nSleeve Length: Three-Quarter Sleeves\nSizes:\nS (Bust Size: 36 in, Size Length: 44 in) \nM (Bust Size: 38 in, Size Length: 44 in) \nXL (Bust Size: 42 in, Size Length: 44 in) \n\nCountry of Origin: India\nDispatch: 1-3 Days';
+
+test('reads sizes from the Sizes block without picking up measurement units', () => {
+    assert.deepEqual(parseSizes(sareeDetails), ['Free Size']);
+    assert.deepEqual(parseSizes(kurtiDetails), ['S', 'M', 'XL']);
+    assert.deepEqual(parseSizes('Fabric: Rayon\nSizes: S, M, L, XL\nCountry of Origin: India'), ['S', 'M', 'L', 'XL']);
+    assert.deepEqual(parseSizes('Type: Neckband'), []);
+});
+
+test('parses structured attributes and dispatch days', () => {
+    assert.deepEqual(parseAttributes(kurtiDetails), { Fabric: 'Cotton', 'Sleeve Length': 'Three-Quarter Sleeves', 'Country of Origin': 'India' });
+    assert.equal(parseAttributes(sareeDetails)['Saree Fabric'], 'Banarasi Silk');
+    assert.equal(parseDispatchDays(sareeDetails), 2);
+    assert.equal(parseDispatchDays(kurtiDetails), 3);
+    assert.equal(parseDispatchDays('Fabric: Cotton'), null);
+});
+
+test('adds shipping, offer, supplier and listing fields', () => {
+    const record = toProductRecord({
+        ...meeshoCatalog,
+        min_catalog_price: 198,
+        full_details: kurtiDetails,
+        shipping: { charges: 61, discount: 9, show_free_delivery: false },
+        special_offers: { display_text: '₹176 with 1 Special Offer', offers: [{ type: 'cod_unbundling', amount: 22 }] },
+        state_code: 'GJ',
+        assured_details: { is_assured: true },
+        tags: [{ name: 'NEXT DAY DISPATCH' }],
+        num_designs: 9,
+        created_iso: '2025-01-29T14:22:02+0530',
+        product_images: [{ url: 'https://images.meesho.com/a.jpg' }, { url: 'https://images.meesho.com/b.jpg' }],
+    }, 'kurti', 3);
+    assert.equal(record.shippingCharge, 61);
+    assert.equal(record.landedPrice, 259);
+    assert.equal(record.specialOfferPrice, 176);
+    assert.equal(record.supplierState, 'Gujarat');
+    assert.equal(record.meeshoAssured, true);
+    assert.equal(record.fastDispatch, true);
+    assert.equal(record.dispatchDays, 3);
+    assert.equal(record.designCount, 9);
+    assert.equal(record.listedAt, '2025-01-29T08:52:02.000Z');
+    assert.equal(record.packSize, 'S, M, XL');
+    assert.equal(record.imageUrls.length, 3);
+});
+
+test('plain Apify Proxy uses Residential India; explicit choices are kept', () => {
+    assert.deepEqual(resolveProxyConfiguration({ useApifyProxy: true }), { useApifyProxy: true, apifyProxyGroups: ['RESIDENTIAL'], apifyProxyCountry: 'IN' });
+    assert.deepEqual(resolveProxyConfiguration({ useApifyProxy: false }), { useApifyProxy: false });
+    assert.deepEqual(resolveProxyConfiguration({ useApifyProxy: true, apifyProxyGroups: ['SHADER'] }), { useApifyProxy: true, apifyProxyGroups: ['SHADER'] });
+    assert.deepEqual(normalizeInput({ proxyConfiguration: { useApifyProxy: true } }).proxyConfiguration.apifyProxyGroups, ['RESIDENTIAL']);
+});
+
+test('filters and onlyChanges read extra pages; an explicit page cap wins', () => {
+    assert.equal(pagesFor(normalizeInput({ maxResults: 50 }), 50), 3);
+    assert.equal(pagesFor(normalizeInput({ maxResults: 10, minPrice: 400 }), 10), 5);
+    assert.equal(pagesFor(normalizeInput({ maxResults: 500, minPrice: 400 }), 500), 25);
+    assert.equal(pagesFor(normalizeInput({ maxResults: 50, maxPagesPerQuery: 1 }), 50), 1);
+    assert.throws(() => normalizeInput({ onlyChanges: true }), /monitorName/);
+    assert.throws(() => normalizeInput({ monitorName: '!bad' }), /monitorName/);
+});
+
+test('monitor compares price, rank and new ratings against the previous run', () => {
+    const now = '2026-11-07T00:00:00.000Z';
+    assert.equal(compareObservation(undefined, { price: 200, position: 5, ratingCount: 10 }, now, 1).changeType, 'new');
+    const previous = { price: 200, position: 5, ratingCount: 10, firstSeenAt: '2026-11-01T00:00:00.000Z', observedAt: '2026-11-06T00:00:00.000Z' };
+    const drop = compareObservation(previous, { price: 180, position: 2, ratingCount: 25 }, now, 1);
+    assert.equal(drop.changeType, 'price_drop');
+    assert.equal(drop.priceChange, -20);
+    assert.equal(drop.priceChangePercent, -10);
+    assert.equal(drop.positionChange, 3);
+    assert.equal(drop.newRatings, 15);
+    assert.equal(drop.firstSeenAt, '2026-11-01T00:00:00.000Z');
+    assert.equal(compareObservation(previous, { price: 201, position: 5, ratingCount: 10 }, now, 1).changeType, 'unchanged');
+    assert.equal(compareObservation(previous, { price: 230, position: 5, ratingCount: 10 }, now, 1).changeType, 'price_increase');
+    assert.equal(monitorKey('My Kurti Watch'), 'MONITOR-my-kurti-watch');
+    assert.equal(entryKey(' Kurti ', '123'), 'kurti|123');
+    assert.deepEqual(restoreState('garbage').entries, {});
+    const big = {};
+    for (let i = 0; i < MAX_MONITORED + 5; i++) big[`q|${i}`] = { ...previous, observedAt: new Date(1e12 + i).toISOString() };
+    const merged = mergeState({ version: 1, updatedAt: '', entries: {} }, big, now);
+    assert.equal(Object.keys(merged.entries).length, MAX_MONITORED);
+    assert.ok(!('q|0' in merged.entries));
 });

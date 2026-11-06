@@ -3,24 +3,272 @@
   "fields": {
     "type": "object",
     "properties": {
-      "source": { "type": "string", "title": "Source" },
-      "searchQuery": { "type": "string", "title": "Search" },
-      "position": { "type": "integer", "title": "Position" },
-      "productId": { "type": ["string", "null"], "title": "Product ID" },
-      "title": { "type": "string", "title": "Title" },
-      "brand": { "type": "string", "title": "Brand" },
-      "price": { "type": ["number", "null"], "title": "Price" },
-      "mrp": { "type": ["number", "null"], "title": "MRP" },
-      "discountPercent": { "type": ["number", "null"], "title": "Discount %" },
-      "currency": { "type": "string", "title": "Currency" },
-      "packSize": { "type": "string", "title": "Sizes" },
-      "category": { "type": "string", "title": "Category" },
-      "rating": { "type": ["number", "null"], "title": "Rating" },
-      "ratingCount": { "type": ["number", "null"], "title": "Ratings" },
-      "inStock": { "type": ["boolean", "null"], "title": "In stock" },
-      "productUrl": { "type": ["string", "null"], "title": "Product URL" },
-      "imageUrl": { "type": ["string", "null"], "title": "Image" },
-      "scrapedAt": { "type": "string", "title": "Scraped at" }
+      "source": {
+        "type": "string",
+        "title": "Source"
+      },
+      "searchQuery": {
+        "type": "string",
+        "title": "Search"
+      },
+      "position": {
+        "type": "integer",
+        "title": "Position"
+      },
+      "productId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "title": "Product ID"
+      },
+      "title": {
+        "type": "string",
+        "title": "Title"
+      },
+      "brand": {
+        "type": "string",
+        "title": "Brand"
+      },
+      "price": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "title": "Price"
+      },
+      "mrp": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "title": "MRP"
+      },
+      "discountPercent": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "title": "Discount %"
+      },
+      "currency": {
+        "type": "string",
+        "title": "Currency"
+      },
+      "packSize": {
+        "type": "string",
+        "title": "Sizes"
+      },
+      "category": {
+        "type": "string",
+        "title": "Category"
+      },
+      "rating": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "title": "Rating"
+      },
+      "ratingCount": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "title": "Ratings"
+      },
+      "inStock": {
+        "type": [
+          "boolean",
+          "null"
+        ],
+        "title": "In stock"
+      },
+      "productUrl": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "title": "Product URL"
+      },
+      "imageUrl": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "title": "Image"
+      },
+      "scrapedAt": {
+        "type": "string",
+        "title": "Scraped at"
+      },
+      "landedPrice": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "title": "Landed price (incl. shipping)"
+      },
+      "specialOfferPrice": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "title": "Special-offer price"
+      },
+      "shippingCharge": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "title": "Shipping"
+      },
+      "dispatchDays": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "title": "Dispatch days"
+      },
+      "fastDispatch": {
+        "type": [
+          "boolean",
+          "null"
+        ],
+        "title": "Next-day dispatch"
+      },
+      "meeshoAssured": {
+        "type": [
+          "boolean",
+          "null"
+        ],
+        "title": "Meesho Assured"
+      },
+      "supplierState": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "title": "Supplier state"
+      },
+      "designCount": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "title": "Designs"
+      },
+      "listedAt": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "title": "Listed at"
+      },
+      "changeType": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "title": "Change"
+      },
+      "previousPrice": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "title": "Previous price"
+      },
+      "priceChange": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "title": "Price change"
+      },
+      "positionChange": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "title": "Rank change"
+      },
+      "newRatings": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "title": "New ratings"
+      },
+      "catalogId": {
+        "type": "string",
+        "title": "Catalog ID"
+      },
+      "heroProductName": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "title": "Product name"
+      },
+      "reviewCount": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "title": "Reviews"
+      },
+      "tags": {
+        "type": "array",
+        "title": "Tags"
+      },
+      "attributes": {
+        "type": "object",
+        "title": "Attributes"
+      },
+      "imageUrls": {
+        "type": "array",
+        "title": "Images"
+      },
+      "isSponsored": {
+        "type": "boolean",
+        "title": "Sponsored"
+      },
+      "monitorName": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "title": "Monitor"
+      },
+      "priceChangePercent": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "title": "Price change %"
+      },
+      "previousPosition": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "title": "Previous rank"
+      },
+      "firstSeenAt": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "title": "First seen"
+      },
+      "previousObservedAt": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "title": "Previous run"
+      }
     }
   },
   "views": {
@@ -28,47 +276,168 @@
       "title": "Products",
       "transformation": {
         "fields": [
-          "source",
-          "searchQuery",
           "position",
-          "productId",
           "title",
-          "brand",
           "price",
-          "mrp",
-          "discountPercent",
-          "currency",
-          "packSize",
-          "category",
+          "landedPrice",
+          "specialOfferPrice",
           "rating",
           "ratingCount",
-          "inStock",
+          "category",
+          "packSize",
+          "dispatchDays",
+          "fastDispatch",
+          "meeshoAssured",
+          "supplierState",
           "productUrl",
           "imageUrl",
+          "searchQuery",
           "scrapedAt"
         ]
       },
       "display": {
         "component": "table",
         "properties": {
-          "source": { "label": "Source", "format": "text" },
-          "searchQuery": { "label": "Search", "format": "text" },
-          "position": { "label": "Position", "format": "number" },
-          "productId": { "label": "Product ID", "format": "text" },
-          "title": { "label": "Title", "format": "text" },
-          "brand": { "label": "Brand", "format": "text" },
-          "price": { "label": "Price", "format": "number" },
-          "mrp": { "label": "MRP", "format": "number" },
-          "discountPercent": { "label": "Discount %", "format": "number" },
-          "currency": { "label": "Currency", "format": "text" },
-          "packSize": { "label": "Sizes", "format": "text" },
-          "category": { "label": "Category", "format": "text" },
-          "rating": { "label": "Rating", "format": "number" },
-          "ratingCount": { "label": "Ratings", "format": "number" },
-          "inStock": { "label": "In stock", "format": "boolean" },
-          "productUrl": { "label": "Product URL", "format": "link" },
-          "imageUrl": { "label": "Image", "format": "image" },
-          "scrapedAt": { "label": "Scraped at", "format": "date" }
+          "position": {
+            "label": "Position",
+            "format": "number"
+          },
+          "title": {
+            "label": "Title",
+            "format": "text"
+          },
+          "price": {
+            "label": "Price",
+            "format": "number"
+          },
+          "landedPrice": {
+            "label": "Landed price (incl. shipping)",
+            "format": "number"
+          },
+          "specialOfferPrice": {
+            "label": "Special-offer price",
+            "format": "number"
+          },
+          "rating": {
+            "label": "Rating",
+            "format": "number"
+          },
+          "ratingCount": {
+            "label": "Ratings",
+            "format": "number"
+          },
+          "category": {
+            "label": "Category",
+            "format": "text"
+          },
+          "packSize": {
+            "label": "Sizes",
+            "format": "text"
+          },
+          "dispatchDays": {
+            "label": "Dispatch days",
+            "format": "number"
+          },
+          "fastDispatch": {
+            "label": "Next-day dispatch",
+            "format": "boolean"
+          },
+          "meeshoAssured": {
+            "label": "Meesho Assured",
+            "format": "boolean"
+          },
+          "supplierState": {
+            "label": "Supplier state",
+            "format": "text"
+          },
+          "productUrl": {
+            "label": "Product URL",
+            "format": "link"
+          },
+          "imageUrl": {
+            "label": "Image",
+            "format": "image"
+          },
+          "searchQuery": {
+            "label": "Search",
+            "format": "text"
+          },
+          "scrapedAt": {
+            "label": "Scraped at",
+            "format": "date"
+          }
+        }
+      }
+    },
+    "priceChanges": {
+      "title": "Price changes (monitor)",
+      "transformation": {
+        "fields": [
+          "changeType",
+          "title",
+          "price",
+          "previousPrice",
+          "priceChange",
+          "priceChangePercent",
+          "position",
+          "positionChange",
+          "newRatings",
+          "productUrl",
+          "searchQuery",
+          "scrapedAt"
+        ]
+      },
+      "display": {
+        "component": "table",
+        "properties": {
+          "changeType": {
+            "label": "Change",
+            "format": "text"
+          },
+          "title": {
+            "label": "Title",
+            "format": "text"
+          },
+          "price": {
+            "label": "Price",
+            "format": "number"
+          },
+          "previousPrice": {
+            "label": "Previous price",
+            "format": "number"
+          },
+          "priceChange": {
+            "label": "Price change",
+            "format": "number"
+          },
+          "priceChangePercent": {
+            "label": "Change %",
+            "format": "number"
+          },
+          "position": {
+            "label": "Rank",
+            "format": "number"
+          },
+          "positionChange": {
+            "label": "Rank change",
+            "format": "number"
+          },
+          "newRatings": {
+            "label": "New ratings",
+            "format": "number"
+          },
+          "productUrl": {
+            "label": "Product URL",
+            "format": "link"
+          },
+          "searchQuery": {
+            "label": "Search",
+            "format": "text"
+          },
+          "scrapedAt": {
+            "label": "Scraped at",
+            "format": "date"
+          }
         }
       }
     }

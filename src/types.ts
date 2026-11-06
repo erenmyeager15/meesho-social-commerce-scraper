@@ -14,6 +14,9 @@ export interface ActorInput {
     maxResults?: number;
     maxPagesPerQuery?: number;
     proxyConfiguration?: ProxyInput;
+    monitorName?: string;
+    onlyChanges?: boolean;
+    priceChangeThresholdPercent?: number;
 }
 
 export interface SearchResponse {
@@ -42,7 +45,42 @@ export interface ProductRecord {
     inStock: boolean | null;
     productUrl: string | null;
     imageUrl: string | null;
+    catalogId: string;
+    heroProductName: string | null;
+    /** Delivery charge shown for this listing; 0 when free. */
+    shippingCharge: number | null;
+    /** price + shippingCharge: what a buyer pays before offers. */
+    landedPrice: number | null;
+    /** Price after Meesho's listed special offer (e.g. prepaid discount). */
+    specialOfferPrice: number | null;
+    dispatchDays: number | null;
+    fastDispatch: boolean;
+    meeshoAssured: boolean;
+    supplierState: string | null;
+    designCount: number | null;
+    reviewCount: number | null;
+    listedAt: string | null;
+    tags: string[];
+    attributes: Record<string, string>;
+    imageUrls: string[];
+    isSponsored: boolean;
     scrapedAt: string;
+}
+
+export type ChangeType = 'new' | 'price_drop' | 'price_increase' | 'unchanged';
+
+export interface MonitorFields {
+    changeType: ChangeType;
+    previousPrice: number | null;
+    priceChange: number | null;
+    priceChangePercent: number | null;
+    previousPosition: number | null;
+    /** Positive = moved up the search results since the last run. */
+    positionChange: number | null;
+    /** New ratings since the last run: a demand signal. */
+    newRatings: number | null;
+    firstSeenAt: string;
+    previousObservedAt: string | null;
 }
 
 export interface PreparedProductRecord extends ProductRecord {

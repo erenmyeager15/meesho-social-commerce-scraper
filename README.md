@@ -1,113 +1,108 @@
-# Meesho Product Scraper: Prices & Catalog
+# Meesho Scraper - Prices & Price Monitor
 
-Scrape public Meesho product search results for ecommerce research, price tracking, catalog monitoring, and marketplace reporting. The Actor searches Meesho by keyword and saves clean product rows with titles, prices, MRP, discounts, ratings, categories, sizes, image URLs, product URLs, and scrape timestamps.
+Scrape Meesho search results for price research, catalog monitoring and seller analysis. Each product row includes the listed price plus what a buyer actually pays: a **shipping-inclusive landed price** and the **special-offer price**. It also includes dispatch time, Meesho Assured status, the supplier's state, structured product attributes and all product images.
 
-The scraper uses Meesho's public product search flow. It is designed for product/catalog data only and does not collect seller contact details, phone numbers, emails, private account data, or customer data.
+Add a **monitor name** and schedule the Actor to compare every product with the previous run. Rows then show price drops and increases, search-rank moves and how many new ratings each product gained, which is a demand signal. With **Only Save Changes**, unchanged products are skipped and not charged.
 
-## Quick Start
+The Actor reads Meesho's public product search. It does not collect seller contact details, phone numbers, emails, private account data or customer data.
 
-Use this one-result sample to verify output at low cost:
+## Quick start
 
 ```json
 {
   "searchQueries": ["kurti"],
-  "includeAds": false,
-  "maxResults": 1,
-  "maxPagesPerQuery": 1,
-  "proxyConfiguration": {
-    "useApifyProxy": true,
-    "apifyProxyGroups": ["RESIDENTIAL"],
-    "apifyProxyCountry": "IN"
-  }
+  "maxResults": 20
 }
 ```
 
-For larger runs, increase `maxResults` gradually and keep `maxPagesPerQuery` at 1 until you confirm the output quality for your query.
+One Meesho search page holds 20 products, so 20 is the default. Larger runs read as many pages as `maxResults` needs.
 
-## What It Extracts
+### Price monitor
 
-- Source, search query, result position, and product ID
-- Product title and brand when exposed
-- Price, MRP, discount percentage, and currency
-- Category and available sizes in `packSize`
-- Rating, rating count, and stock flag when exposed
-- Product URL, image URL, and ISO scrape timestamp
-
-## Use Cases
-
-- Track Meesho product prices, MRP, and discounts by search term
-- Monitor fashion, home, and marketplace catalog changes
-- Compare public Meesho product listings with other ecommerce sources
-- Build competitor price snapshots and product research reports
-- Export product rows to CSV, Excel, JSON, or dashboards
-
-## Pricing And Cost Control
-
-This Actor uses Apify Pay Per Event pricing. As of the latest live check, active pricing is:
-
-| Event | Price |
-| --- | ---: |
-| `product-scraped` | `$0.002` per saved product |
-| `apify-actor-start` | `$0.00005` per GB start event |
-
-Products are charged only when a clean row is saved to the dataset. The Actor stops requesting more data when the run's maximum charge is reached. Platform usage such as compute and proxy traffic may also apply depending on your Apify plan and run configuration.
-
-Cost-control tips:
-
-- Start with one query, for example `kurti`.
-- Keep `maxResults: 1` for the first run, then scale gradually.
-- Keep `maxPagesPerQuery: 1` for test runs.
-- Keep `includeAds: false` unless sponsored products are needed.
-- Use the run's maximum cost setting for strict spending control.
-- Residential India proxy is recommended for reliable cloud runs, but proxy traffic can add platform usage cost.
-
-## Input Fields
-
-| Field | Type | Description |
-| --- | --- | --- |
-| `searchQueries` | string[] | One to five Meesho searches such as `kurti`, `saree`, or `bedsheet` |
-| `minPrice` / `maxPrice` | number | Optional INR price range |
-| `minRating` | number | Optional minimum rating from 0 to 5 |
-| `includeAds` | boolean | Include sponsored/ad products when true |
-| `maxResults` | integer | Maximum unique products to save, up to 500 |
-| `maxPagesPerQuery` | integer | Maximum Meesho result pages to request per query |
-| `proxyConfiguration` | object | Apify Proxy settings. Residential India is recommended |
-
-## Sample Output
+Run this on a daily schedule:
 
 ```json
 {
-  "source": "meesho",
-  "searchQuery": "kurti",
-  "position": 1,
-  "productId": "6dy8dt",
-  "title": "Women Rayon Banita Alluring Kurtis",
-  "brand": "N/A",
-  "price": 197,
-  "mrp": 399,
-  "discountPercent": 51,
-  "currency": "INR",
-  "packSize": "S, M, L, XL",
-  "category": "Kurtis & Kurtas",
-  "rating": 4.1,
-  "ratingCount": 20362,
-  "inStock": null,
-  "productUrl": "https://www.meesho.com/women-rayon-banita-alluring-kurtis/p/6dy8dt",
-  "imageUrl": "https://images.meesho.com/images/catalogs/example_512.jpg",
-  "scrapedAt": "2026-06-13T12:00:00.000Z"
+  "searchQueries": ["kurti", "saree"],
+  "maxResults": 100,
+  "monitorName": "ethnic-wear-daily",
+  "onlyChanges": true,
+  "priceChangeThresholdPercent": 2
 }
 ```
 
-## Reliability Notes
+The first run saves every product as `changeType: "new"` and stores a baseline. Later runs with the same `monitorName` save only new listings and price moves of at least 2%. The **Price changes** dataset view shows them side by side.
 
-- Meesho search results, ranking, prices, ratings, and availability can change frequently.
-- Some products do not expose brand, stock, MRP, or full size data. Missing values are saved as `null` or `N/A`.
-- The Actor fails blocked or empty zero-result runs instead of silently reporting success with no saved products.
-- If individual pages fail after retries, they are skipped and reported; the run fails only if no products are saved.
+## What each row contains
 
-## Responsible Use
+| Field | Description |
+| --- | --- |
+| `title`, `heroProductName`, `productId`, `catalogId` | Catalog name, product name and identifiers |
+| `price` | Lowest listed price in INR |
+| `shippingCharge`, `landedPrice` | Delivery charge shown on the listing (0 when free) and price + shipping |
+| `specialOfferPrice` | Price after Meesho's listed special offer, e.g. the prepaid discount |
+| `mrp`, `discountPercent` | Only when Meesho exposes them; most search results no longer do |
+| `rating`, `ratingCount`, `reviewCount` | Average rating and counts |
+| `category`, `packSize`, `attributes` | Category, sizes (e.g. `S, M, XL` or `Free Size`) and structured attributes such as `{"Fabric": "Cotton", "Sleeve Length": "Three-Quarter Sleeves"}` |
+| `dispatchDays`, `fastDispatch` | Supplier dispatch time in days and the "Next Day Dispatch" tag |
+| `meeshoAssured`, `supplierState` | Meesho Assured flag and the supplier's GST state, e.g. `Gujarat` |
+| `designCount`, `listedAt` | Number of designs in the catalog and when it was listed |
+| `imageUrl`, `imageUrls` | Cover image and up to 10 product images |
+| `searchQuery`, `position`, `isSponsored` | The search, rank in the results and the ad flag |
+| `productUrl`, `scrapedAt` | Product page and ISO timestamp |
 
-This Actor is not affiliated with, endorsed by, or sponsored by Meesho. Use it only for lawful purposes and in compliance with applicable website terms, privacy laws, and local regulations. Do not use it to collect private account data, seller contact details, customer data, or non-public information.
+With a monitor name, rows also contain `monitorName`, `changeType` (`new`, `price_drop`, `price_increase`, `unchanged`), `previousPrice`, `priceChange`, `priceChangePercent`, `previousPosition`, `positionChange` (positive = moved up), `newRatings`, `firstSeenAt` and `previousObservedAt`.
+
+The run's `OUTPUT` record summarizes saved products, pages read, rows removed by filters, per-query stopping reasons and the monitor's change counts.
+
+## Use cases
+
+- Compare true buyer cost (landed and offer price) across competing listings
+- Track daily price drops and rank changes for your own or competitor catalogs
+- Spot fast-growing products from `newRatings` between runs
+- Find suppliers by state and dispatch speed
+- Build catalog datasets with structured attributes and images
+
+## Pricing
+
+Pay Per Event:
+
+| Event | Price |
+| --- | ---: |
+| `product-scraped` | `$0.002` per saved product ($2 per 1,000) |
+| `apify-actor-start` | `$0.00005` per GB at run start |
+
+Only saved products are charged. With `onlyChanges`, unchanged products are not saved or charged. The Actor stops when the run's maximum charge is reached. Platform usage (compute and Residential proxy traffic) also applies depending on your plan; a 20-product run used about $0.0006.
+
+## Input
+
+| Field | Description |
+| --- | --- |
+| `searchQueries` | One to five Meesho searches |
+| `maxResults` | Maximum products across all queries, up to 500 (default 20) |
+| `minPrice` / `maxPrice` | INR price range; filtered runs read extra pages automatically |
+| `minRating` | Minimum rating, 0 to 5 |
+| `includeAds` | Include sponsored products (default false) |
+| `monitorName` | Enables price monitoring across runs |
+| `onlyChanges` | With a monitor: save only new products and price changes |
+| `priceChangeThresholdPercent` | Smaller price moves count as unchanged (default 1) |
+| `maxPagesPerQuery` | Optional page cap; empty means automatic |
+| `proxyConfiguration` | Residential India is used; see below |
+
+## Proxy
+
+Meesho returns HTTP 403 to Apify datacenter IPs and to direct cloud traffic, so the Actor uses Apify Residential proxy with country India. Choosing plain "Apify Proxy" without a group also uses Residential India. An explicit proxy group or your own proxy URLs are used as given.
+
+## Reliability notes
+
+- Meesho results, ranking, prices and ratings change often.
+- A run fails only when no search page could be read. If pages load but filters remove every product, the run succeeds and says so.
+- The monitor baseline is updated only when every requested page loaded, so a blocked page cannot make products look new next time.
+- Use one monitor name per search and run its schedule without overlapping runs. Up to 5,000 products are kept per monitor.
+
+## Responsible use
+
+This Actor is not affiliated with, endorsed by, or sponsored by Meesho. Use it only for lawful purposes and in compliance with applicable website terms, privacy laws, and local regulations.
 
 ## License
 

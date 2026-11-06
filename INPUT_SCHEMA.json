@@ -1,12 +1,12 @@
 {
-    "title": "Meesho Product Scraper - Social Commerce Data",
-    "description": "Scrape public Meesho product catalog data by search term. Extract prices, ratings, categories, sizes, stock flags, images, and product URLs. The default input saves one product for a low-cost first run.",
+    "title": "Meesho Product Scraper and Price Monitor",
+    "description": "Scrape Meesho search results with prices, shipping-inclusive landed price, special-offer price, dispatch time, supplier state, product attributes and images. Add a monitor name to track price drops, rank moves and new ratings between runs.",
     "type": "object",
     "schemaVersion": 1,
     "properties": {
         "searchQueries": {
             "title": "Search Queries",
-            "description": "Product search terms to scrape from Meesho. Each query is processed in sequence.",
+            "description": "One to five Meesho searches such as kurti, saree or bedsheet. Each query is processed in sequence.",
             "type": "array",
             "items": {
                 "type": "string"
@@ -17,23 +17,33 @@
             "default": ["kurti"],
             "prefill": ["kurti"]
         },
+        "maxResults": {
+            "title": "Max Results",
+            "description": "Maximum products to save across all queries. One Meesho page holds 20 products, so the default of 20 saves one full page.",
+            "type": "integer",
+            "default": 20,
+            "prefill": 20,
+            "minimum": 1,
+            "maximum": 500,
+            "editor": "number"
+        },
         "minPrice": {
-            "title": "Minimum Price",
-            "description": "Only keep products with a price greater than or equal to this INR value.",
+            "title": "Minimum Price (INR)",
+            "description": "Only keep products priced at or above this value. Filtered runs read extra pages automatically to find matches.",
             "type": "integer",
             "minimum": 0,
             "editor": "number"
         },
         "maxPrice": {
-            "title": "Maximum Price",
-            "description": "Only keep products with a price less than or equal to this INR value.",
+            "title": "Maximum Price (INR)",
+            "description": "Only keep products priced at or below this value.",
             "type": "integer",
             "minimum": 0,
             "editor": "number"
         },
         "minRating": {
             "title": "Minimum Rating",
-            "description": "Only keep products with a rating greater than or equal to this value.",
+            "description": "Only keep products with a rating at or above this value (0 to 5).",
             "type": "number",
             "minimum": 0,
             "maximum": 5,
@@ -46,29 +56,41 @@
             "default": false,
             "editor": "checkbox"
         },
-        "maxResults": {
-            "title": "Max Results",
-            "description": "Maximum number of products to save across all search queries. The default is 1 for a low-cost first run.",
-            "type": "integer",
+        "monitorName": {
+            "title": "Price Monitor Name (optional)",
+            "description": "Reuse the same name on scheduled runs to compare each product with the previous run. Rows then include changeType (new, price_drop, price_increase, unchanged), previousPrice, priceChange, positionChange and newRatings. Use 1-50 letters, numbers, spaces, underscores or hyphens.",
+            "type": "string",
+            "editor": "textfield",
+            "sectionCaption": "Price monitoring"
+        },
+        "onlyChanges": {
+            "title": "Only Save Changes",
+            "description": "With a monitor name: save and charge only new products and price changes. Unchanged products are skipped and not charged.",
+            "type": "boolean",
+            "default": false,
+            "editor": "checkbox"
+        },
+        "priceChangeThresholdPercent": {
+            "title": "Price Change Threshold (%)",
+            "description": "Smaller price moves count as unchanged. Default 1%.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
             "default": 1,
-            "prefill": 1,
-            "minimum": 1,
-            "maximum": 500,
             "editor": "number"
         },
         "maxPagesPerQuery": {
             "title": "Max Pages Per Query",
-            "description": "Maximum number of Meesho result pages to request for each search query. Start with 1 for a small test run.",
+            "description": "Leave empty to read as many pages as Max Results needs (more when filters drop rows). Set a number to cap pages per query.",
             "type": "integer",
-            "default": 1,
-            "prefill": 1,
             "minimum": 1,
             "maximum": 50,
-            "editor": "number"
+            "editor": "number",
+            "sectionCaption": "Advanced"
         },
         "proxyConfiguration": {
             "title": "Proxy Configuration",
-            "description": "Proxy settings. Residential India proxy is recommended because Meesho blocks many datacenter IPs. Proxy traffic may be billed as platform usage.",
+            "description": "Meesho blocks Apify datacenter IPs and direct cloud traffic (HTTP 403), so Residential India is used. Plain Apify Proxy without a group also uses Residential India.",
             "type": "object",
             "editor": "proxy",
             "default": {

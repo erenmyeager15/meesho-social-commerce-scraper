@@ -1,19 +1,22 @@
 {
   "actorSpecification": 1,
   "name": "meesho-social-commerce-scraper",
-  "title": "Meesho Product Scraper: Prices & Catalog",
-  "description": "Scrape public Meesho product search results for titles, prices, MRP, discounts, ratings, categories, sizes, stock flags, image URLs, and product URLs.",
+  "title": "Meesho Scraper - $2/1k, Prices & Price Monitor",
+  "description": "Scrape Meesho search results with price, shipping-inclusive landed price, special-offer price, dispatch time, supplier state, attributes and images. Track price drops, rank moves and new ratings between runs.",
   "version": "1.0",
   "buildTag": "latest",
   "dockerfile": "Dockerfile",
   "input": "../INPUT_SCHEMA.json",
   "readme": "../README.md",
   "exampleRunInput": {
-    "body": "{\"searchQueries\":[\"kurti\"],\"includeAds\":false,\"maxResults\":1,\"maxPagesPerQuery\":1,\"proxyConfiguration\":{\"useApifyProxy\":true,\"apifyProxyGroups\":[\"RESIDENTIAL\"],\"apifyProxyCountry\":\"IN\"}}",
+    "body": "{\"searchQueries\":[\"kurti\"],\"maxResults\":20,\"includeAds\":false,\"proxyConfiguration\":{\"useApifyProxy\":true,\"apifyProxyGroups\":[\"RESIDENTIAL\"],\"apifyProxyCountry\":\"IN\"}}",
     "contentType": "application/json; charset=utf-8"
   },
   "output": "./output_schema.json",
-  "categories": ["ECOMMERCE", "AUTOMATION"],
+  "categories": [
+    "ECOMMERCE",
+    "AUTOMATION"
+  ],
   "categoriesVersion": "1.0.0",
   "pricingInfo": {
     "pricingModel": "PAY_PER_EVENT",

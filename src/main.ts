@@ -1,14 +1,17 @@
 import { Actor } from 'apify';
 import { ProxyAgent } from 'undici';
 import type { Dispatcher } from 'undici';
-import { normalizeInput } from './input.js';
+import { normalizeInput, pagesFor } from './input.js';
 import { buildSearchPayload, buildSearchUrl, toProductRecord } from './routes.js';
+import { compareObservation, emptyState, entryKey, mergeState, MONITOR_STORE_NAME, monitorKey, restoreState } from './monitor.js';
+import type { MonitorEntry, MonitorState } from './monitor.js';
 import type { ActorInput, PreparedProductRecord, SearchResponse } from './types.js';
 import type { NormalizedInput } from './input.js';
 
 const MEESHO_SEARCH_API = 'https://www.meesho.com/api/v1/products/search';
 const PAGE_SIZE = 20;
 const MAX_RETRIES = 3;
+
 
 function logInfo(message: string, data?: Record<string, unknown>): void {
     console.log(data ? `${message} ${JSON.stringify(data)}` : message);
@@ -40,12 +43,21 @@ function shouldKeepRecord(record: PreparedProductRecord, input: NormalizedInput)
     return true;
 }
 
+/** Short, readable reason; never dump the source's HTML error page into logs. */
+function describeHttpFailure(status: number, body: string): string {
+    if (status === 403 || /access denied/i.test(body)) {
+        return 'Meesho returned HTTP 403 (access denied). Use Apify Residential proxy with country India.';
+    }
+    if (status === 429) return 'Meesho returned HTTP 429 (rate limited).';
+    return `Meesho search returned HTTP ${status}.`;
+}
+
 async function fetchSearchPage(options: {
     query: string;
     page: number;
     cursor: string | null;
     searchSessionId: string | null;
-    proxyConfiguration?: { newUrl: () => Promise<string | undefined> };
+    proxyConfiguration?: { newUrl: (sessionId?: string) => Promise<string | undefined> };
 }): Promise<SearchResponse> {
     let lastError: Error | undefined;
 
@@ -84,21 +96,17 @@ async function fetchSearchPage(options: {
             const response = await fetch(MEESHO_SEARCH_API, requestInit);
             const body = await response.text();
 
-            if (!response.ok) {
-                throw new Error(`Meesho search returned ${response.status}: ${body.slice(0, 300)}`);
-            }
+            if (!response.ok) throw new Error(describeHttpFailure(response.status, body));
 
-            const parsed = JSON.parse(body) as SearchResponse;
-            return parsed;
+            return JSON.parse(body) as SearchResponse;
         } catch (error) {
             lastError = error instanceof Error ? error : new Error(String(error));
+            if (lastError.name === 'SyntaxError') lastError = new Error('Meesho returned a response that was not JSON.');
 
-            if (attempt > MAX_RETRIES) {
-                break;
-            }
+            if (attempt > MAX_RETRIES) break;
 
             const delay = 1_000 + attempt * 750 + Math.floor(Math.random() * 1_000);
-            logWarn('Search request failed, retrying', {
+            logWarn('Search request failed, retrying with a new proxy session', {
                 query: options.query,
                 page: options.page,
                 attempt,
@@ -108,6 +116,7 @@ async function fetchSearchPage(options: {
             await sleep(delay);
         } finally {
             clearTimeout(timeout);
+            if (dispatcher) await dispatcher.close().catch(() => undefined);
         }
     }
 
@@ -121,98 +130,102 @@ Actor.main(async () => {
     logInfo('Starting Meesho Product Scraper', {
         searchQueries: input.searchQueries,
         maxResults: input.maxResults,
-        maxPagesPerQuery: input.maxPagesPerQuery,
+        maxPagesPerQuery: input.maxPagesPerQuery ?? 'auto',
+        monitorName: input.monitorName ?? null,
+        onlyChanges: input.onlyChanges,
+        proxy: input.proxyConfiguration.apifyProxyGroups?.join(',') || (input.proxyConfiguration.proxyUrls?.length ? 'custom' : 'none'),
     });
+
+    const monitorStore = input.monitorName ? await Actor.openKeyValueStore(MONITOR_STORE_NAME) : null;
+    const monitorStateKey = input.monitorName ? monitorKey(input.monitorName) : null;
+    const previousState: MonitorState = monitorStore && monitorStateKey
+        ? restoreState(await monitorStore.getValue(monitorStateKey))
+        : emptyState();
+    const isBaseline = Object.keys(previousState.entries).length === 0;
+    const observations: Record<string, MonitorEntry> = {};
+    const changeCounts = { new: 0, price_drop: 0, price_increase: 0, unchanged: 0 };
 
     const seen = new Set<string>();
     let saved = 0;
+    let pagesFetched = 0;
+    let filteredOut = 0;
+    let unchangedSkipped = 0;
     let chargeLimitReached = false;
     let fatalBillingError: Error | null = null;
     const skippedPages: Array<{ query: string; page: number; reason: string }> = [];
+    const perQuery: Array<{ query: string; pages: number; saved: number; stoppedBy: string }> = [];
+    const now = new Date().toISOString();
 
     searchLoop:
     for (const query of input.searchQueries) {
         let cursor: string | null = null;
         let searchSessionId: string | null = null;
+        const queryStats = { query, pages: 0, saved: 0, stoppedBy: 'page_limit' };
+        perQuery.push(queryStats);
+        const pageLimit = pagesFor(input, input.maxResults - saved);
 
-        for (let page = 1; page <= input.maxPagesPerQuery; page++) {
-            if (saved >= input.maxResults || chargeLimitReached || fatalBillingError) break searchLoop;
+        for (let page = 1; page <= pageLimit; page++) {
+            if (saved >= input.maxResults) { queryStats.stoppedBy = 'max_results'; break searchLoop; }
+            if (chargeLimitReached || fatalBillingError) { queryStats.stoppedBy = 'spending_limit'; break searchLoop; }
 
             let response: SearchResponse;
             try {
-                response = await fetchSearchPage({
-                    query,
-                    page,
-                    cursor,
-                    searchSessionId,
-                    proxyConfiguration,
-                });
+                response = await fetchSearchPage({ query, page, cursor, searchSessionId, proxyConfiguration });
             } catch (error) {
                 const reason = error instanceof Error ? error.message : String(error);
                 skippedPages.push({ query, page, reason });
-                logWarn('Skipping remaining Meesho pages for query after repeated request failures', {
-                    query,
-                    page,
-                    reason,
-                });
+                queryStats.stoppedBy = 'request_failed';
+                logWarn('Skipping remaining Meesho pages for query after repeated request failures', { query, page, reason });
                 break;
             }
 
+            pagesFetched += 1;
+            queryStats.pages += 1;
             const catalogs = Array.isArray(response.catalogs) ? response.catalogs : [];
             cursor = response.cursor ?? null;
             searchSessionId = response.search_session_id ?? searchSessionId;
 
-            logInfo('Fetched Meesho page', {
-                query,
-                page,
-                catalogs: catalogs.length,
-                hasCursor: Boolean(cursor),
-            });
+            logInfo('Fetched Meesho page', { query, page, catalogs: catalogs.length, hasCursor: Boolean(cursor) });
 
-            if (!catalogs.length) break;
+            if (!catalogs.length) { queryStats.stoppedBy = 'no_more_results'; break; }
 
             for (const [index, catalog] of catalogs.entries()) {
-                if (saved >= input.maxResults) break searchLoop;
+                if (saved >= input.maxResults) { queryStats.stoppedBy = 'max_results'; break searchLoop; }
 
                 const position = (page - 1) * PAGE_SIZE + index + 1;
                 const record = toProductRecord(catalog, query, position);
-                if (!record || !shouldKeepRecord(record, input)) continue;
+                if (!record) continue;
+                if (!shouldKeepRecord(record, input)) { filteredOut += 1; continue; }
 
                 const uniqueKey = record.uniqueKey;
                 if (!uniqueKey || seen.has(uniqueKey)) continue;
-                const datasetRecord = {
-                    source: record.source,
-                    searchQuery: record.searchQuery,
-                    position: record.position,
-                    productId: record.productId,
-                    title: record.title,
-                    brand: record.brand,
-                    price: record.price,
-                    mrp: record.mrp,
-                    discountPercent: record.discountPercent,
-                    currency: record.currency,
-                    packSize: record.packSize,
-                    category: record.category,
-                    rating: record.rating,
-                    ratingCount: record.ratingCount,
-                    inStock: record.inStock,
-                    productUrl: record.productUrl,
-                    imageUrl: record.imageUrl,
-                    scrapedAt: record.scrapedAt,
-                };
+                seen.add(uniqueKey);
+
+                const { uniqueKey: _key, isAdProduct: _ad, ...datasetRecord } = record;
+                let output: Record<string, unknown> = datasetRecord;
+                if (monitorStore) {
+                    const key = entryKey(query, record.catalogId);
+                    const change = compareObservation(previousState.entries[key],
+                        { price: record.price, position, ratingCount: record.ratingCount }, now, input.priceChangeThresholdPercent);
+                    observations[key] = { price: record.price, position, ratingCount: record.ratingCount,
+                        firstSeenAt: change.firstSeenAt, observedAt: now };
+                    changeCounts[change.changeType] += 1;
+                    // New listings and price moves are changes; only unchanged rows are skipped (and not charged).
+                    if (input.onlyChanges && change.changeType === 'unchanged') {
+                        unchangedSkipped += 1;
+                        continue;
+                    }
+                    output = { ...datasetRecord, monitorName: input.monitorName, ...change };
+                }
 
                 try {
-                    const chargeResult = await Actor.pushData(datasetRecord, 'product-scraped');
-                    const recordWasSaved = chargeResult.chargedCount > 0
-                        || !chargeResult.eventChargeLimitReached;
-
-                    if (recordWasSaved) {
-                        seen.add(uniqueKey);
-                        saved += 1;
-                    }
+                    const chargeResult = await Actor.pushData(output, 'product-scraped');
+                    const recordWasSaved = chargeResult.chargedCount > 0 || !chargeResult.eventChargeLimitReached;
+                    if (recordWasSaved) { saved += 1; queryStats.saved += 1; }
 
                     if (chargeResult?.eventChargeLimitReached) {
                         chargeLimitReached = true;
+                        queryStats.stoppedBy = 'spending_limit';
                         await Actor.setStatusMessage(`Stopped at the user's spending limit after ${saved} products`);
                         logWarn('User spending limit reached; stopping after the last saved product.', { saved });
                         break searchLoop;
@@ -228,27 +241,49 @@ Actor.main(async () => {
                 }
             }
 
-            if (!cursor) break;
+            if (!cursor) { queryStats.stoppedBy = 'no_more_results'; break; }
             await sleep(700 + Math.floor(Math.random() * 700));
         }
     }
 
     if (fatalBillingError) throw fatalBillingError;
-    if (saved === 0 && !chargeLimitReached) {
+
+    // Commit the monitor only when every requested query was read, so a
+    // blocked page cannot make products look new or delisted next time.
+    let monitorCommitted = false;
+    if (monitorStore && monitorStateKey && skippedPages.length === 0 && pagesFetched > 0) {
+        await monitorStore.setValue(monitorStateKey, mergeState(previousState, observations, now));
+        monitorCommitted = true;
+    }
+
+    const summary = {
+        status: saved > 0 || chargeLimitReached ? (skippedPages.length ? 'partial' : 'complete')
+            : pagesFetched > 0 ? 'no_matches' : 'failed',
+        savedProducts: saved,
+        pagesFetched,
+        filteredOut,
+        unchangedSkipped,
+        spendingLimitReached: chargeLimitReached,
+        queries: perQuery,
+        skippedPages,
+        monitor: input.monitorName ? { name: input.monitorName, baseline: isBaseline, committed: monitorCommitted, changes: changeCounts } : null,
+    };
+    await Actor.setValue('OUTPUT', summary);
+
+    if (summary.status === 'failed') {
         const skipped = skippedPages.map((item) => `${item.query} page ${item.page}: ${item.reason}`).join('; ');
-        throw new Error(`Meesho scrape finished with no saved products.${skipped ? ` Skipped pages: ${skipped}` : ''}`);
+        throw new Error(`Meesho scrape saved no products.${skipped ? ` ${skipped}` : ''}`);
     }
-    if (skippedPages.length > 0) {
-        logWarn('Some Meesho pages were skipped', { skippedPages });
-    }
+    if (skippedPages.length > 0) logWarn('Some Meesho pages were skipped', { skippedPages });
 
     if (!chargeLimitReached) {
-        await Actor.setStatusMessage(`Finished with ${saved} Meesho products`);
+        const message = summary.status === 'no_matches'
+            ? (input.onlyChanges && unchangedSkipped > 0
+                ? `Finished: no price changes since the last run (${unchangedSkipped} unchanged products, not charged).`
+                : `Finished: no products matched the filters in ${pagesFetched} page(s). Widen the filters or raise maxPagesPerQuery.`)
+            : `Finished with ${saved} Meesho products${input.monitorName ? ` (${changeCounts.price_drop} price drops, ${changeCounts.price_increase} increases, ${changeCounts.new} new)` : ''}`;
+        await Actor.setStatusMessage(message);
     }
 
-    logInfo('Meesho scrape complete', {
-        saved,
-        uniqueProducts: seen.size,
-        chargeLimitReached,
-    });
+    logInfo('Meesho scrape complete', { saved, pagesFetched, filteredOut, unchangedSkipped, chargeLimitReached, monitorCommitted });
 });
