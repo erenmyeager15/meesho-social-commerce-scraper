@@ -147,6 +147,11 @@ Actor.main(async () => {
 
     const seen = new Set<string>();
     let saved = 0;
+    // With onlyChanges, maxResults counts products checked (saved or skipped as
+    // unchanged). Otherwise skipped rows would pull in deeper pages whose
+    // products look "new" only because they were outside the previous window.
+    let checked = 0;
+    const budgetUsed = () => (input.onlyChanges ? checked : saved);
     let pagesFetched = 0;
     let filteredOut = 0;
     let unchangedSkipped = 0;
@@ -162,10 +167,10 @@ Actor.main(async () => {
         let searchSessionId: string | null = null;
         const queryStats = { query, pages: 0, saved: 0, stoppedBy: 'page_limit' };
         perQuery.push(queryStats);
-        const pageLimit = pagesFor(input, input.maxResults - saved);
+        const pageLimit = pagesFor(input, input.maxResults - budgetUsed());
 
         for (let page = 1; page <= pageLimit; page++) {
-            if (saved >= input.maxResults) { queryStats.stoppedBy = 'max_results'; break searchLoop; }
+            if (budgetUsed() >= input.maxResults) { queryStats.stoppedBy = 'max_results'; break searchLoop; }
             if (chargeLimitReached || fatalBillingError) { queryStats.stoppedBy = 'spending_limit'; break searchLoop; }
 
             let response: SearchResponse;
@@ -190,7 +195,7 @@ Actor.main(async () => {
             if (!catalogs.length) { queryStats.stoppedBy = 'no_more_results'; break; }
 
             for (const [index, catalog] of catalogs.entries()) {
-                if (saved >= input.maxResults) { queryStats.stoppedBy = 'max_results'; break searchLoop; }
+                if (budgetUsed() >= input.maxResults) { queryStats.stoppedBy = 'max_results'; break searchLoop; }
 
                 const position = (page - 1) * PAGE_SIZE + index + 1;
                 const record = toProductRecord(catalog, query, position);
@@ -210,6 +215,7 @@ Actor.main(async () => {
                     observations[key] = { price: record.price, position, ratingCount: record.ratingCount,
                         firstSeenAt: change.firstSeenAt, observedAt: now };
                     changeCounts[change.changeType] += 1;
+                    checked += 1;
                     // New listings and price moves are changes; only unchanged rows are skipped (and not charged).
                     if (input.onlyChanges && change.changeType === 'unchanged') {
                         unchangedSkipped += 1;

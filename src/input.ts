@@ -127,8 +127,10 @@ export function normalizeInput(raw: ActorInput = {}): NormalizedInput {
 const PAGE_SIZE = 20;
 const MAX_AUTO_PAGES = 25;
 
+/** onlyChanges is not a filter here: with it, maxResults caps products checked,
+ * so the monitored window stays the same size from run to run. */
 export function filtersActive(input: NormalizedInput): boolean {
-    return input.minPrice !== undefined || input.maxPrice !== undefined || input.minRating !== undefined || input.onlyChanges;
+    return input.minPrice !== undefined || input.maxPrice !== undefined || input.minRating !== undefined;
 }
 
 /** Pages needed for the remaining rows. Filters and onlyChanges drop rows after
